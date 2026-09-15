@@ -61,15 +61,41 @@ const baseArrivalSchedule = [
 ];
 
 // 2. 하노이 공항 T2 국제선 출발(Departure) 스케줄 추가 (예상 통계치)
+// [신규 보강] 하노이 공항 T2 국제선 출발(Departure) 24시간 스케줄 (통계 기반 예상치)
 const baseDepartureSchedule = [
+    // 심야 ~ 새벽 (한국, 일본행 위주)
     { time: '00:30', flight: 'VJ960', airline: 'VietJetAir', route: 'ICN', isKorea: true, seats: 200 },
     { time: '01:15', flight: 'KE442', airline: 'Korean Air', route: 'ICN', isKorea: true, seats: 280 },
     { time: '01:50', flight: '7C2804', airline: 'Jeju Air', route: 'ICN', isKorea: true, seats: 189 },
+    { time: '02:30', flight: 'VJ938', airline: 'VietJetAir', route: 'TPE', isKorea: false, seats: 200 },
+    
+    // 오전 (동남아, 동북아 단거리 위주)
     { time: '08:15', flight: 'VN384', airline: 'Vietnam Airlines', route: 'HND', isKorea: false, seats: 305 },
+    { time: '08:40', flight: 'CX742', airline: 'Cathay Pacific', route: 'HKG', isKorea: false, seats: 330 },
+    { time: '09:20', flight: 'TG561', airline: 'Thai Airways', route: 'BKK', isKorea: false, seats: 280 },
     { time: '10:05', flight: 'VN416', airline: 'Vietnam Airlines', route: 'ICN', isKorea: true, seats: 305 },
+    { time: '10:40', flight: 'SQ191', airline: 'Singapore Airlines', route: 'SIN', isKorea: false, seats: 305 },
+    { time: '11:20', flight: 'CZ8476', airline: 'China Southern', route: 'CAN', isKorea: false, seats: 189 },
+    
+    // 오후 (중화권, 일본, 일부 한국행)
     { time: '12:00', flight: 'OZ728', airline: 'Asiana Airlines', route: 'ICN', isKorea: true, seats: 280 },
+    { time: '13:10', flight: 'MH753', airline: 'Malaysia Airlines', route: 'KUL', isKorea: false, seats: 160 },
     { time: '14:30', flight: 'JL752', airline: 'Japan Airlines', route: 'NRT', isKorea: false, seats: 290 },
+    { time: '15:10', flight: 'BR398', airline: 'EVA Air', route: 'TPE', isKorea: false, seats: 250 },
+    { time: '16:00', flight: 'VJ901', airline: 'VietJetAir', route: 'BKK', isKorea: false, seats: 200 },
+    { time: '16:45', flight: 'TR301', airline: 'Scoot', route: 'SIN', isKorea: false, seats: 230 },
+    { time: '17:30', flight: 'AK513', airline: 'AirAsia', route: 'KUL', isKorea: false, seats: 180 },
+    
+    // 저녁 (유럽, 홍콩, 대만 등)
+    { time: '18:20', flight: 'CI794', airline: 'China Airlines', route: 'TPE', isKorea: false, seats: 300 },
+    { time: '19:00', flight: 'VN592', airline: 'Vietnam Airlines', route: 'HKG', isKorea: false, seats: 200 },
+    { time: '20:20', flight: 'JX716', airline: 'STARLUX', route: 'TPE', isKorea: false, seats: 188 },
+    
+    // 밤 피크 (한국 및 중동 장거리행)
+    { time: '21:30', flight: 'VN310', airline: 'Vietnam Airlines', route: 'NRT', isKorea: false, seats: 305 },
+    { time: '22:45', flight: 'VJ982', airline: 'VietJetAir', route: 'PUS', isKorea: true, seats: 200 },
     { time: '23:15', flight: 'VN414', airline: 'Vietnam Airlines', route: 'ICN', isKorea: true, seats: 305 },
+    { time: '23:30', flight: 'BX792', airline: 'Air Busan', route: 'PUS', isKorea: true, seats: 195 },
     { time: '23:50', flight: 'OZ734', airline: 'Asiana Airlines', route: 'ICN', isKorea: true, seats: 200 }
 ];
 
