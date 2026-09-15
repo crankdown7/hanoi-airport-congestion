@@ -5,7 +5,9 @@ const cors = require('cors');
 const app = express();
 app.use(cors());
 // 웹사이트 화면 파일(public 폴더)을 방문자에게 제공하도록 설정
-app.use(express.static('public'));
+app.get('/', (req, res) => {
+    res.sendFile(__dirname + '/index.html');
+});
 
 const PORT = process.env.PORT || 3000;
 const AIRLABS_API_KEY = 'd702a552-a0b5-4e04-b840-08cb220cb353'; 
