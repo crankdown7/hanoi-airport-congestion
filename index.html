@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>하노이(HAN) 24시간 도착 혼잡도 (하이브리드 모델)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Noto Sans KR', sans-serif; background-color: #f8fafc; }
+  </style>
+</head>
+<body class="text-gray-800">
+
+  <div class="max-w-6xl mx-auto p-4 md:p-8 mt-4">
+    
+    <!-- 상단 헤더 및 언어 선택 -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">
+      <h1 class="text-xl md:text-2xl font-bold text-gray-800" id="mainTitle">하노이(HAN) 24시간 도착 혼잡도 (하이브리드 모델)</h1>
+      <select id="langSelect" class="border border-gray-300 rounded-lg px-3 py-1.5 text-sm font-medium text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer">
+        <option value="ko">🇰🇷 한국어</option>
+        <option value="en">🇺🇸 English</option>
+        <option value="vi">🇻🇳 Tiếng Việt</option>
+        <option value="zh">🇨🇳 中文</option>
+      </select>
+    </div>
+
+    <!-- 안내 메시지 -->
+    <div class="bg-blue-50 border border-blue-100 rounded-lg p-4 mb-6 text-sm text-blue-800" id="alertNotice">
+      <strong>알림:</strong> 표출되는 혼잡도는 고정 스케줄과 좌석 통계를 기반으로 한 <strong>예측치(Prediction)</strong>이며, 공항 심사관 배치 상황에 따라 실제 대기 시간(사실)과 차이가 있을 수 있습니다.
+    </div>
+
+    <!-- 상단 검색/필터 영역 -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-8 flex flex-col md:flex-row gap-6 items-start md:items-center justify-between">
+      <div class="flex flex-col md:flex-row gap-6 items-start md:items-center w-full">
+        <div class="flex flex-col">
+          <label class="text-sm font-bold text-gray-700 mb-2" id="lblDest">도착지</label>
+          <select class="border border-gray-300 rounded-lg px-4 py-2 w-40 text-gray-700 focus:outline-none bg-gray-50">
+            <option id="optHan">하노이 (HAN)</option>
+          </select>
+        </div>
+        <div class="flex flex-col">
+          <label class="text-sm font-bold text-gray-700 mb-2" id="lblDate">조회할 날짜</label>
+          <div class="flex gap-2">
+            <input type="date" id="dateInput" class="border border-gray-300 rounded-lg px-4 py-2 w-44 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <button id="fetchBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors shrink-0">
+              조회
+            </button>
+          </div>
+        </div>
+        
+        <!-- 통합 검색창 및 필터 -->
+        <div class="flex flex-col w-full md:w-auto md:ml-auto gap-3 mt-4 md:mt-0">
+          <div class="flex items-center gap-2 bg-gray-50 px-4 py-2.5 rounded-lg border border-gray-200">
+            <input type="checkbox" id="koreaFilter" class="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 cursor-pointer">
+            <label for="koreaFilter" class="text-sm font-bold text-gray-700 cursor-pointer" id="lblKorea">한국발 비행기만 모아보기</label>
+          </div>
+          <div class="w-full">
+            <input type="text" id="searchInput" placeholder="편명, 출발지, 시간 검색 (예: VN, ICN, 21:)" class="border border-gray-300 rounded-lg px-4 py-2 w-full md:w-72 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 상태 알림 텍스트 -->
+    <div id="statusNotice" class="text-right text-xs text-gray-400 mb-2 h-4"></div>
+
+    <!-- 테이블 영역 -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-center whitespace-nowrap">
+          <thead class="bg-gray-50 text-gray-500 text-sm border-b border-gray-100">
+            <tr>
+              <th class="py-4 px-4 font-medium" id="thAirline">항공사</th>
+              <th class="py-4 px-4 font-medium" id="thFlight">편명</th>
+              <th class="py-4 px-4 font-medium" id="thOrigin">출발지</th>
+              <th class="py-4 px-4 font-medium" id="thTime">도착 시간</th>
+              <th class="py-4 px-4 font-medium" id="thQueue">대기열 누적 현황</th>
+              <th class="py-4 px-4 font-medium" id="thCongestion">예측 혼잡도 지수</th>
+            </tr>
+          </thead>
+          <tbody id="flightsTableBody" class="divide-y divide-gray-100">
+            <tr><td colspan="6" class="py-12 text-gray-400" id="tdLoading">데이터를 불러오는 중입니다...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // --- 1. 언어 팩 (Dictionary) 정의 ---
+    const dict = {
+      ko: {
+        title: "하노이(HAN) 24시간 도착 혼잡도 (하이브리드 모델)",
+        alertNotice: "<strong>알림:</strong> 표출되는 혼잡도는 고정 스케줄과 좌석 통계를 기반으로 한 <strong>예측치(Prediction)</strong>이며, 공항 심사관 배치 상황에 따라 실제 대기 시간(사실)과 차이가 있을 수 있습니다.",
+        lblDest: "도착지",
+        optHan: "하노이 (HAN)",
+        lblDate: "조회할 날짜",
+        fetchBtn: "조회",
+        fetchingBtn: "조회 중...",
+        lblKorea: "한국발 비행기만 모아보기",
+        searchPlaceholder: "편명, 출발지, 시간 검색 (예: VN, ICN, 21:)",
+        thAirline: "항공사",
+        thFlight: "편명",
+        thOrigin: "출발지",
+        thTime: "도착 시간",
+        thQueue: "대기열 누적 현황",
+        thCongestion: "예측 혼잡도 지수",
+        tdLoading: "데이터를 불러오는 중입니다...",
+        tdNoData: "해당 조건이나 검색어에 일치하는 항공편이 없습니다.",
+        statusToday: "본 예측은 24시간 예상 정규 시간표에 '실시간 지연(Delay)' 정보를 보정한 혼잡도 예상치입니다.",
+        statusFuture: "본 예측은 해당 날짜의 예상 정규 운항 시간표를 기반으로 한 통계치이며, 실제 스케줄 변동은 반영되지 않았습니다.",
+        strConcurrent: "전후 누적 {n}대",
+        strPredictPax: "예측 유입량: {n}명"
+      },
+      en: {
+        title: "Hanoi (HAN) 24H Arrival Congestion (Hybrid Model)",
+        alertNotice: "<strong>Notice:</strong> The congestion shown is a <strong>Prediction</strong> based on fixed schedules and seat statistics. Actual wait times may vary depending on airport operations.",
+        lblDest: "Destination",
+        optHan: "Hanoi (HAN)",
+        lblDate: "Select Date",
+        fetchBtn: "Search",
+        fetchingBtn: "Searching...",
+        lblKorea: "Show Flights from Korea Only",
+        searchPlaceholder: "Search flight, origin, time (e.g., VN, ICN, 21:)",
+        thAirline: "Airline",
+        thFlight: "Flight",
+        thOrigin: "Origin",
+        thTime: "Arrival Time",
+        thQueue: "Queue Accumulation",
+        thCongestion: "Predicted Congestion Index",
+        tdLoading: "Loading data...",
+        tdNoData: "No flights match the criteria or search term.",
+        statusToday: "Prediction based on 24H regular schedule, adjusted with 'real-time delay' information.",
+        statusFuture: "Prediction based on the regular schedule for the selected date. Actual cancellations or delays are not reflected.",
+        strConcurrent: "Accumulated {n} flights",
+        strPredictPax: "Predicted influx: {n} pax"
+      },
+      vi: {
+        title: "Tắc nghẽn đến Hà Nội (HAN) 24H (Mô hình Hybrid)",
+        alertNotice: "<strong>Lưu ý:</strong> Sự tắc nghẽn được hiển thị là <strong>Dự đoán</strong> dựa trên lịch trình cố định. Thời gian chờ thực tế có thể thay đổi tùy thuộc vào tình hình sân bay.",
+        lblDest: "Điểm đến",
+        optHan: "Hà Nội (HAN)",
+        lblDate: "Chọn ngày",
+        fetchBtn: "Tra cứu",
+        fetchingBtn: "Đang tải...",
+        lblKorea: "Chỉ xem chuyến bay từ Hàn Quốc",
+        searchPlaceholder: "Tìm chuyến, nơi đi, giờ (VD: VN, ICN, 21:)",
+        thAirline: "Hãng HK",
+        thFlight: "Chuyến bay",
+        thOrigin: "Khởi hành",
+        thTime: "Giờ đến",
+        thQueue: "Tích lũy hàng đợi",
+        thCongestion: "Chỉ số tắc nghẽn dự đoán",
+        tdLoading: "Đang tải dữ liệu...",
+        tdNoData: "Không có chuyến bay nào phù hợp.",
+        statusToday: "Dự đoán này dựa trên lịch trình 24H, được điều chỉnh với thông tin 'chậm trễ thực tế'.",
+        statusFuture: "Dự đoán này dựa trên lịch trình cố định. Không phản ánh sự chậm trễ thực tế.",
+        strConcurrent: "Tích lũy {n} chuyến",
+        strPredictPax: "Lượng khách dự đoán: {n} người"
+      },
+      zh: {
+        title: "河内 (HAN) 24小时到达拥堵预测 (混合模型)",
+        alertNotice: "<strong>注意：</strong> 显示的拥堵情况是基于固定时间表和座位统计的<strong>预测 (Prediction)</strong>。实际等待时间可能会有所不同。",
+        lblDest: "目的地",
+        optHan: "河内 (HAN)",
+        lblDate: "选择日期",
+        fetchBtn: "查询",
+        fetchingBtn: "查询中...",
+        lblKorea: "仅查看韩国出发航班",
+        searchPlaceholder: "搜索航班、出发地、时间 (例: VN, ICN, 21:)",
+        thAirline: "航空公司",
+        thFlight: "航班号",
+        thOrigin: "出发地",
+        thTime: "到达时间",
+        thQueue: "队列累计",
+        thCongestion: "预测拥堵指数",
+        tdLoading: "数据加载中...",
+        tdNoData: "没有符合条件的航班。",
+        statusToday: "本预测基于24小时定期时刻表，并结合了“实时延误”信息进行修正。",
+        statusFuture: "本预测基于所选日期的固定航班时刻表，未反映实际取消或延误。",
+        strConcurrent: "累计 {n} 架次",
+        strPredictPax: "预测客流: {n} 人"
+      }
+    };
+
+    let currentLang = 'ko'; // 기본 언어
+    let globalSchedule = [];
+    let isTodayStatus = false; // 현재 데이터가 '오늘' 기준인지 저장
+
+    // --- 2. 텍스트 변경(다국어 적용) 함수 ---
+    function applyLanguage() {
+      const t = dict[currentLang];
+      document.getElementById('mainTitle').innerText = t.title;
+      document.getElementById('alertNotice').innerHTML = t.alertNotice;
+      document.getElementById('lblDest').innerText = t.lblDest;
+      document.getElementById('optHan').innerText = t.optHan;
+      document.getElementById('lblDate').innerText = t.lblDate;
+      document.getElementById('fetchBtn').innerText = t.fetchBtn;
+      document.getElementById('lblKorea').innerText = t.lblKorea;
+      document.getElementById('searchInput').placeholder = t.searchPlaceholder;
+      document.getElementById('thAirline').innerText = t.thAirline;
+      document.getElementById('thFlight').innerText = t.thFlight;
+      document.getElementById('thOrigin').innerText = t.thOrigin;
+      document.getElementById('thTime').innerText = t.thTime;
+      document.getElementById('thQueue').innerText = t.thQueue;
+      document.getElementById('thCongestion').innerText = t.thCongestion;
+
+      // 안내 문구 업데이트
+      if (globalSchedule.length > 0) {
+        document.getElementById('statusNotice').innerText = isTodayStatus ? t.statusToday : t.statusFuture;
+      }
+
+      // 언어가 변경되면 표 안의 데이터 글자들도 언어에 맞게 다시 그림
+      renderTable();
+    }
+
+    // 언어 선택 박스 변경 이벤트
+    document.getElementById('langSelect').addEventListener('change', function(e) {
+      currentLang = e.target.value;
+      applyLanguage();
+    });
+
+    // --- 3. 날짜 및 혼잡도 차트 로직 ---
+    const today = new Date();
+    const offset = today.getTimezoneOffset() * 60000;
+    const localISOTime = (new Date(today - offset)).toISOString().split('T')[0];
+    document.getElementById('dateInput').value = localISOTime;
+
+    function getCongestionBars(totalPax) {
+      const maxBars = 10;
+      let filledBars = Math.min(Math.ceil(totalPax / 200), maxBars);
+      if (totalPax > 0 && filledBars === 0) filledBars = 1;
+
+      let colorClass = 'bg-[#84cc16]'; 
+      if (filledBars >= 7) colorClass = 'bg-[#f97316]'; 
+      else if (filledBars >= 4) colorClass = 'bg-[#fbbf24]'; 
+
+      let barsHtml = '<div class="flex items-center justify-center gap-1 mb-1">';
+      for(let i=1; i<=maxBars; i++) {
+        barsHtml += `<div class="w-1.5 h-4 ${i <= filledBars ? colorClass : 'bg-gray-100'} rounded-sm"></div>`;
+      }
+      barsHtml += '</div>';
+      return barsHtml;
+    }
+
+    // --- 4. 테이블 렌더링 로직 (검색 및 다국어 반영) ---
+    function renderTable() {
+      const tbody = document.getElementById('flightsTableBody');
+      const isKoreaOnly = document.getElementById('koreaFilter').checked;
+      const searchText = document.getElementById('searchInput').value.trim().toLowerCase();
+      const t = dict[currentLang]; // 현재 언어팩 가져오기
+      
+      tbody.innerHTML = '';
+
+      let displayData = globalSchedule;
+      if (isKoreaOnly) displayData = displayData.filter(f => f.isKorea);
+      if (searchText) {
+        displayData = displayData.filter(f => {
+          return f.flight.toLowerCase().includes(searchText) ||
+                 f.origin.toLowerCase().includes(searchText) ||
+                 f.time.includes(searchText);
+        });
+      }
+
+      if (displayData.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="py-12 text-gray-400">${t.tdNoData}</td></tr>`;
+        return;
+      }
+      
+      displayData.forEach(target => {
+        const [th, tm] = target.time.split(':').map(Number);
+        const targetMins = th * 60 + tm;
+        
+        let concurrentCount = -1; 
+        let maxPax = 0;
+
+        globalSchedule.forEach(f => {
+          const [h, m] = f.time.split(':').map(Number);
+          const fMins = h * 60 + m;
+          
+          let diff = fMins - targetMins;
+          if (diff < -720) diff += 1440;
+          if (diff > 720) diff -= 1440;
+
+          if (diff >= -60 && diff <= 10) {
+            concurrentCount++;
+            maxPax += f.seats; 
+          }
+        });
+
+        const timeHtml = target.isDelayed 
+          ? `<div class="font-bold text-red-500 text-lg">${target.time} <span class="text-xs font-normal text-gray-400 line-through">(${target.originalTime})</span></div>`
+          : `<div class="font-bold text-gray-900 text-lg">${target.time}</div>`;
+
+        // 동적 문자열(전후 누적 X대, 예측 유입량 X명) 언어팩 적용
+        const strConcurrent = t.strConcurrent.replace('{n}', concurrentCount);
+        const strPredictPax = t.strPredictPax.replace('{n}', maxPax);
+
+        const rowHtml = `
+          <tr class="hover:bg-gray-50/50 transition-colors">
+            <td class="py-5 px-4 text-gray-700">${target.airline}</td>
+            <td class="py-5 px-4"><span class="bg-gray-100 text-gray-700 font-bold px-3 py-1 rounded-md text-sm">${target.flight}</span></td>
+            <td class="py-5 px-4 text-gray-700">${target.origin}</td>
+            <td class="py-5 px-4">${timeHtml}</td>
+            <td class="py-5 px-4">
+              <div class="text-sm text-gray-700">${strConcurrent}</div>
+            </td>
+            <td class="py-5 px-4">
+              ${getCongestionBars(maxPax)}
+              <div class="text-gray-400 text-xs font-medium">${strPredictPax}</div>
+            </td>
+          </tr>
+        `;
+        tbody.insertAdjacentHTML('beforeend', rowHtml);
+      });
+    }
+
+    async function fetchData() {
+      const btn = document.getElementById('fetchBtn');
+      const dateVal = document.getElementById('dateInput').value;
+      const statusNotice = document.getElementById('statusNotice');
+      const t = dict[currentLang];
+      
+      btn.innerText = t.fetchingBtn; // 언어팩의 "조회 중..." 적용
+      
+      try {
+        const res = await fetch(`/api/hanoi-arrivals?date=${dateVal}`);
+        if (!res.ok) throw new Error('서버 응답 오류');
+        const result = await res.json();
+        
+        globalSchedule = result.data;
+        isTodayStatus = result.isToday; 
+        
+        // 프론트엔드 단에서 언어에 맞게 상태 메시지 적용
+        statusNotice.innerText = isTodayStatus ? t.statusToday : t.statusFuture;
+        
+        renderTable();
+      } catch (err) {
+        alert('Data Error: Please check the backend server.');
+      } finally {
+        btn.innerText = t.fetchBtn; // 다시 언어팩의 "조회"로 복구
+      }
+    }
+
+    document.getElementById('fetchBtn').addEventListener('click', fetchData);
+    document.getElementById('koreaFilter').addEventListener('change', renderTable);
+    document.getElementById('searchInput').addEventListener('input', renderTable);
+
+    window.addEventListener('DOMContentLoaded', fetchData);
+  </script>
+</body>
+</html>
