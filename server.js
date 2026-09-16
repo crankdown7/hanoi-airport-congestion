@@ -4,16 +4,16 @@ const cors = require('cors');
 
 const app = express();
 app.use(cors());
-app.use(express.static('public'));
 
+// 만약 index.html 파일이 server.js와 같은 폴더에 있다면 아래 방식을 사용합니다.
 app.get('/', (req, res) => {
     res.sendFile(__dirname + '/index.html');
 });
+// (참고: 만약 index.html이 public 폴더 안에 있다면 위 코드 대신 app.use(express.static('public')); 를 사용하십시오.)
 
 const PORT = process.env.PORT || 3000;
-// 본인의 AirLabs API 키를 아래에 입력하세요.
 const AIRLABS_API_KEY = 'd702a552-a0b5-4e04-b840-08cb220cb353'; 
-const FIREBASE_URL = 'https://hanoi-airport-9faea-default-rtdb.firebaseio.com';
+const FIREBASE_URL = 'https://hanoi-airport-9faea-default-rtdb.firebaseio.com'; // 주의: 맨 끝의 '/'는 지우세요.
 
 const VIETNAM_DOMESTIC_AIRPORTS = [
     'SGN', 'DAD', 'CXR', 'PQC', 'DLI', 'HUI', 'VDO', 'VDH', 
@@ -21,7 +21,7 @@ const VIETNAM_DOMESTIC_AIRPORTS = [
     'VCA', 'VCS', 'DIN', 'HPH'
 ];
 
-// 1. 하노이 공항 T2 국제선 도착(Arrival) 스케줄 전체 (사실을 바탕으로 한 예상 통계치)
+// 하노이 공항 T2 국제선 도착(Arrival) 스케줄 (예상 정규 스케줄)
 const baseArrivalSchedule = [
     { time: '00:10', flight: 'VJ961', airline: 'VietJetAir', route: 'ICN', isKorea: true, seats: 200 },
     { time: '00:35', flight: '7C2803', airline: 'Jeju Air', route: 'ICN', isKorea: true, seats: 189 },
@@ -30,69 +30,31 @@ const baseArrivalSchedule = [
     { time: '07:30', flight: 'VN385', airline: 'Vietnam Airlines', route: 'HND', isKorea: false, seats: 305 },
     { time: '08:25', flight: 'SU0294', airline: 'Aeroflot', route: 'SVO', isKorea: false, seats: 300 },
     { time: '09:30', flight: 'VN417', airline: 'Vietnam Airlines', route: 'ICN', isKorea: true, seats: 305 },
-    { time: '09:40', flight: 'TG560', airline: 'Thai Airways', route: 'BKK', isKorea: false, seats: 280 },
-    { time: '10:05', flight: 'CZ8475', airline: 'China Southern', route: 'CAN', isKorea: false, seats: 189 },
     { time: '10:30', flight: 'OZ727', airline: 'Asiana Airlines', route: 'ICN', isKorea: true, seats: 280 },
     { time: '10:45', flight: 'KE455', airline: 'Korean Air', route: 'ICN', isKorea: true, seats: 290 },
-    { time: '11:15', flight: 'SQ192', airline: 'Singapore Airlines', route: 'SIN', isKorea: false, seats: 305 },
-    { time: '11:40', flight: 'BR397', airline: 'EVA Air', route: 'TPE', isKorea: false, seats: 250 },
     { time: '12:05', flight: 'VN427', airline: 'Vietnam Airlines', route: 'PUS', isKorea: true, seats: 200 },
-    { time: '12:30', flight: 'MH752', airline: 'Malaysia Airlines', route: 'KUL', isKorea: false, seats: 160 },
-    { time: '13:10', flight: 'VJ902', airline: 'VietJetAir', route: 'BKK', isKorea: false, seats: 200 },
-    { time: '13:30', flight: 'JL751', airline: 'Japan Airlines', route: 'NRT', isKorea: false, seats: 290 },
     { time: '14:10', flight: 'CX741', airline: 'Cathay Pacific', route: 'HKG', isKorea: false, seats: 330 },
-    { time: '14:40', flight: 'VJ939', airline: 'VietJetAir', route: 'TPE', isKorea: false, seats: 200 },
-    { time: '15:20', flight: 'TR300', airline: 'Scoot', route: 'SIN', isKorea: false, seats: 230 },
-    { time: '15:50', flight: 'CI793', airline: 'China Airlines', route: 'TPE', isKorea: false, seats: 300 },
-    { time: '16:30', flight: 'AK512', airline: 'AirAsia', route: 'KUL', isKorea: false, seats: 180 },
-    { time: '17:15', flight: 'FD314', airline: 'Thai AirAsia', route: 'BKK', isKorea: false, seats: 180 },
     { time: '18:10', flight: 'VN311', airline: 'Vietnam Airlines', route: 'NRT', isKorea: false, seats: 305 },
-    { time: '18:40', flight: 'CX743', airline: 'Cathay Pacific', route: 'HKG', isKorea: false, seats: 330 },
-    { time: '19:15', flight: 'JX715', airline: 'STARLUX', route: 'TPE', isKorea: false, seats: 188 },
-    { time: '20:10', flight: 'VN593', airline: 'Vietnam Airlines', route: 'HKG', isKorea: false, seats: 200 },
     { time: '20:45', flight: 'OZ731', airline: 'Asiana Airlines', route: 'ICN', isKorea: true, seats: 280 },
     { time: '21:30', flight: 'VN415', airline: 'Vietnam Airlines', route: 'ICN', isKorea: true, seats: 305 },
-    { time: '22:10', flight: 'VJ983', airline: 'VietJetAir', route: 'PUS', isKorea: true, seats: 200 },
     { time: '22:30', flight: 'BX791', airline: 'Air Busan', route: 'PUS', isKorea: true, seats: 195 },
-    { time: '22:40', flight: '7C2801', airline: 'Jeju Air', route: 'ICN', isKorea: true, seats: 189 },
     { time: '23:05', flight: 'KE441', airline: 'Korean Air', route: 'ICN', isKorea: true, seats: 280 },
-    { time: '23:15', flight: 'OZ733', airline: 'Asiana Airlines', route: 'ICN', isKorea: true, seats: 200 },
-    { time: '23:25', flight: 'QR976', airline: 'Qatar Airways', route: 'DOH', isKorea: false, seats: 360 },
-    { time: '23:45', flight: 'EK394', airline: 'Emirates', route: 'DXB', isKorea: false, seats: 360 }
+    { time: '23:15', flight: 'OZ733', airline: 'Asiana Airlines', route: 'ICN', isKorea: true, seats: 200 }
 ];
 
-// 2. 하노이 공항 T2 국제선 출발(Departure) 스케줄 추가 (예상 통계치)
-// [신규 보강] 하노이 공항 T2 국제선 출발(Departure) 24시간 스케줄 (통계 기반 예상치)
+// 하노이 공항 T2 국제선 출발(Departure) 스케줄 (예상 정규 스케줄)
 const baseDepartureSchedule = [
-    // 심야 ~ 새벽 (한국, 일본행 위주)
     { time: '00:30', flight: 'VJ960', airline: 'VietJetAir', route: 'ICN', isKorea: true, seats: 200 },
     { time: '01:15', flight: 'KE442', airline: 'Korean Air', route: 'ICN', isKorea: true, seats: 280 },
     { time: '01:50', flight: '7C2804', airline: 'Jeju Air', route: 'ICN', isKorea: true, seats: 189 },
     { time: '02:30', flight: 'VJ938', airline: 'VietJetAir', route: 'TPE', isKorea: false, seats: 200 },
-    
-    // 오전 (동남아, 동북아 단거리 위주)
     { time: '08:15', flight: 'VN384', airline: 'Vietnam Airlines', route: 'HND', isKorea: false, seats: 305 },
     { time: '08:40', flight: 'CX742', airline: 'Cathay Pacific', route: 'HKG', isKorea: false, seats: 330 },
-    { time: '09:20', flight: 'TG561', airline: 'Thai Airways', route: 'BKK', isKorea: false, seats: 280 },
     { time: '10:05', flight: 'VN416', airline: 'Vietnam Airlines', route: 'ICN', isKorea: true, seats: 305 },
-    { time: '10:40', flight: 'SQ191', airline: 'Singapore Airlines', route: 'SIN', isKorea: false, seats: 305 },
-    { time: '11:20', flight: 'CZ8476', airline: 'China Southern', route: 'CAN', isKorea: false, seats: 189 },
-    
-    // 오후 (중화권, 일본, 일부 한국행)
     { time: '12:00', flight: 'OZ728', airline: 'Asiana Airlines', route: 'ICN', isKorea: true, seats: 280 },
-    { time: '13:10', flight: 'MH753', airline: 'Malaysia Airlines', route: 'KUL', isKorea: false, seats: 160 },
     { time: '14:30', flight: 'JL752', airline: 'Japan Airlines', route: 'NRT', isKorea: false, seats: 290 },
-    { time: '15:10', flight: 'BR398', airline: 'EVA Air', route: 'TPE', isKorea: false, seats: 250 },
     { time: '16:00', flight: 'VJ901', airline: 'VietJetAir', route: 'BKK', isKorea: false, seats: 200 },
-    { time: '16:45', flight: 'TR301', airline: 'Scoot', route: 'SIN', isKorea: false, seats: 230 },
-    { time: '17:30', flight: 'AK513', airline: 'AirAsia', route: 'KUL', isKorea: false, seats: 180 },
-    
-    // 저녁 (유럽, 홍콩, 대만 등)
     { time: '18:20', flight: 'CI794', airline: 'China Airlines', route: 'TPE', isKorea: false, seats: 300 },
-    { time: '19:00', flight: 'VN592', airline: 'Vietnam Airlines', route: 'HKG', isKorea: false, seats: 200 },
-    { time: '20:20', flight: 'JX716', airline: 'STARLUX', route: 'TPE', isKorea: false, seats: 188 },
-    
-    // 밤 피크 (한국 및 중동 장거리행)
     { time: '21:30', flight: 'VN310', airline: 'Vietnam Airlines', route: 'NRT', isKorea: false, seats: 305 },
     { time: '22:45', flight: 'VJ982', airline: 'VietJetAir', route: 'PUS', isKorea: true, seats: 200 },
     { time: '23:15', flight: 'VN414', airline: 'Vietnam Airlines', route: 'ICN', isKorea: true, seats: 305 },
@@ -103,7 +65,6 @@ const baseDepartureSchedule = [
 let liveArrivalsMap = new Map();
 let liveDeparturesMap = new Map();
 let lastFetchTimestamp = 0; 
-let lastFetchTimeString = null;
 
 async function fetchFlightsFromAirLabs() {
     try {
@@ -135,15 +96,13 @@ async function fetchFlightsFromAirLabs() {
                 }
             });
         }
-
         lastFetchTimestamp = Date.now();
-        lastFetchTimeString = new Date().toLocaleString();
-        console.log(`[데이터 갱신 완료] ${lastFetchTimeString}`);
     } catch (error) {
         console.error('API 호출 실패:', error.message);
     }
 }
 
+// 스케줄 데이터 제공 API
 app.get('/api/hanoi-schedules', async (req, res) => {
     const queryDate = req.query.date; 
     const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
@@ -155,7 +114,7 @@ app.get('/api/hanoi-schedules', async (req, res) => {
             await fetchFlightsFromAirLabs();
         }
     }
-
+    
     let finalArrivals = [];
     baseArrivalSchedule.forEach(base => {
         let flightTime = base.time;
@@ -181,33 +140,25 @@ app.get('/api/hanoi-schedules', async (req, res) => {
     finalArrivals.sort((a, b) => a.time.localeCompare(b.time));
     finalDepartures.sort((a, b) => a.time.localeCompare(b.time));
 
-    res.json({
-        success: true,
-        arrivals: finalArrivals,
-        departures: finalDepartures,
-        isToday: isToday
-    });
+    res.json({ success: true, arrivals: finalArrivals, departures: finalDepartures, isToday: isToday });
 });
 
-// [신규] 방문자 카운트 처리 API (하노이 현지 시간 기준)
+// 방문자 카운트 처리 API (Firebase 연동)
 app.get('/api/visit', async (req, res) => {
     const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
     try {
-        // 1. 기존 데이터 읽기
         const { data } = await axios.get(`${FIREBASE_URL}/visitors.json`);
         let total = (data && data.total) ? data.total : 0;
         let daily = (data && data.daily && data.daily[todayStr]) ? data.daily[todayStr] : 0;
-
-        // 2. 카운트 증가
+        
         total++; 
         daily++;
-
-        // 3. DB에 업데이트 (덮어쓰기)
+        
         await axios.patch(`${FIREBASE_URL}/visitors.json`, {
             total: total,
             [`daily/${todayStr}`]: daily
         });
-
+        
         res.json({ success: true, total, daily });
     } catch (error) {
         console.error('Firebase DB 에러:', error.message);
