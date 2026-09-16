@@ -132,8 +132,14 @@ async function fetchFlightsFromAirLabs() {
             });
         }
 
-        cachedArrivals = tempArrivals.filter((v,i,a)=>a.findIndex(t=>(t.flight === v.flight))===i).sort((a, b) => a.time.localeCompare(b.time));
-        cachedDepartures = tempDepartures.filter((v,i,a)=>a.findIndex(t=>(t.flight === v.flight))===i).sort((a, b) => a.time.localeCompare(b.time));
+        // 공동운항(Codeshare) 중복 제거: 원래 시간(originalTime)과 노선(route)이 정확히 동일하면 1대의 비행기로 간주하여 하나만 남김
+        cachedArrivals = tempArrivals.filter((v, i, a) => 
+            a.findIndex(t => t.originalTime === v.originalTime && t.route === v.route) === i
+        ).sort((a, b) => a.time.localeCompare(b.time));
+
+        cachedDepartures = tempDepartures.filter((v, i, a) => 
+            a.findIndex(t => t.originalTime === v.originalTime && t.route === v.route) === i
+        ).sort((a, b) => a.time.localeCompare(b.time));
         lastFetchTimestamp = Date.now();
     } catch (error) {
         console.error('API 호출 실패:', error.message);
