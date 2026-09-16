@@ -13,6 +13,7 @@ app.get('/', (req, res) => {
 const PORT = process.env.PORT || 3000;
 // 본인의 AirLabs API 키를 아래에 입력하세요.
 const AIRLABS_API_KEY = 'd702a552-a0b5-4e04-b840-08cb220cb353'; 
+const FIREBASE_URL = 'https://hanoi-airport-9faea-default-rtdb.firebaseio.com';
 
 const VIETNAM_DOMESTIC_AIRPORTS = [
     'SGN', 'DAD', 'CXR', 'PQC', 'DLI', 'HUI', 'VDO', 'VDH', 
@@ -154,7 +155,7 @@ app.get('/api/hanoi-schedules', async (req, res) => {
             await fetchFlightsFromAirLabs();
         }
     }
-    
+
     let finalArrivals = [];
     baseArrivalSchedule.forEach(base => {
         let flightTime = base.time;
@@ -186,6 +187,32 @@ app.get('/api/hanoi-schedules', async (req, res) => {
         departures: finalDepartures,
         isToday: isToday
     });
+});
+
+// [신규] 방문자 카운트 처리 API (하노이 현지 시간 기준)
+app.get('/api/visit', async (req, res) => {
+    const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
+    try {
+        // 1. 기존 데이터 읽기
+        const { data } = await axios.get(`${FIREBASE_URL}/visitors.json`);
+        let total = (data && data.total) ? data.total : 0;
+        let daily = (data && data.daily && data.daily[todayStr]) ? data.daily[todayStr] : 0;
+
+        // 2. 카운트 증가
+        total++; 
+        daily++;
+
+        // 3. DB에 업데이트 (덮어쓰기)
+        await axios.patch(`${FIREBASE_URL}/visitors.json`, {
+            total: total,
+            [`daily/${todayStr}`]: daily
+        });
+
+        res.json({ success: true, total, daily });
+    } catch (error) {
+        console.error('Firebase DB 에러:', error.message);
+        res.json({ success: false, total: 0, daily: 0 });
+    }
 });
 
 app.listen(PORT, () => {
