@@ -60,8 +60,8 @@
       </div>
     </div>
 
-    <!-- 상태 알림 -->
-    <div id="statusNotice" class="text-right text-xs text-gray-400 mb-2 h-4"></div>
+    <!-- 방문자 통계 카운터 영역 -->
+    <div id="visitorCount" class="text-right text-xs font-bold text-gray-500 mb-2 h-4">방문자 통계 로딩 중...</div>
 
     <!-- 테이블 영역 -->
     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
@@ -112,13 +112,38 @@
         thArrTime: "Arrival Time", thDepTime: "Departure Time",
         thQueue: "Terminal Queue", thCongestion: "Predicted Index",
         tdLoading: "Loading...", tdNoData: "No flights match the criteria.",
-        strConcurrent: "{n} flights overlapping", strPredictPax: "Predicted: {n} pax"
+        strConcurrent: "Accumulated {n} flights", strPredictPax: "Predicted: {n} pax"
+      },
+      vi: {
+        title: "Tắc nghẽn đến Hà Nội (HAN) 24H (Mô hình Hybrid)",
+        alertNotice: "<strong>Lưu ý:</strong> Sự tắc nghẽn được hiển thị là <strong>Dự đoán</strong>. Thời gian chờ thực tế có thể thay đổi.",
+        tabArrival: "Đến", tabDeparture: "Khởi hành",
+        lblDate: "Chọn ngày", fetchBtn: "Tra cứu", fetchingBtn: "Đang tải...",
+        lblKorea: "Chỉ tuyến Hàn Quốc", searchPlaceholder: "Tìm chuyến, nơi đi, giờ",
+        thAirline: "Hãng HK", thFlight: "Chuyến bay",
+        thOrigin: "Khởi hành", thDestination: "Điểm đến",
+        thArrTime: "Giờ đến", thDepTime: "Giờ khởi hành",
+        thQueue: "Tích lũy hàng đợi", thCongestion: "Chỉ số dự đoán",
+        tdLoading: "Đang tải dữ liệu...", tdNoData: "Không có chuyến bay phù hợp.",
+        strConcurrent: "Tích lũy {n} chuyến", strPredictPax: "Dự đoán: {n} người"
+      },
+      zh: {
+        title: "河内 (HAN) 24小时拥堵预测 (混合模型)",
+        alertNotice: "<strong>注意：</strong> 显示的拥堵情况是<strong>预测 (Prediction)</strong>。实际等待时间可能会有所不同。",
+        tabArrival: "到达", tabDeparture: "出发",
+        lblDate: "选择日期", fetchBtn: "查询", fetchingBtn: "查询中...",
+        lblKorea: "仅限韩国航线", searchPlaceholder: "搜索航班、出发地、时间",
+        thAirline: "航空公司", thFlight: "航班号",
+        thOrigin: "出发地", thDestination: "目的地",
+        thArrTime: "到达时间", thDepTime: "出发时间",
+        thQueue: "队列累计", thCongestion: "预测拥堵指数",
+        tdLoading: "数据加载中...", tdNoData: "没有符合条件的航班。",
+        strConcurrent: "累计 {n} 架次", strPredictPax: "预测人数: {n} 人"
       }
-      // (용량 한계상 베트남/중국어 생략. 기존 코드 참고하여 추가 가능)
     };
 
     let currentLang = 'ko';
-    let currentMode = 'arrival'; // 'arrival' 또는 'departure'
+    let currentMode = 'arrival'; 
     let dataArrivals = [];
     let dataDepartures = [];
 
@@ -138,7 +163,6 @@
       
       document.getElementById('thAirline').innerText = t.thAirline;
       document.getElementById('thFlight').innerText = t.thFlight;
-      // 탭 모드에 따라 테이블 헤더 글자 변환
       document.getElementById('thRoute').innerText = currentMode === 'arrival' ? t.thOrigin : t.thDestination;
       document.getElementById('thTime').innerText = currentMode === 'arrival' ? t.thArrTime : t.thDepTime;
       document.getElementById('thQueue').innerText = t.thQueue;
@@ -153,7 +177,7 @@
       currentMode = mode;
       document.getElementById('tabArrival').className = mode === 'arrival' ? "flex-1 py-3 tab-active text-lg transition-colors cursor-pointer" : "flex-1 py-3 tab-inactive text-lg transition-colors cursor-pointer";
       document.getElementById('tabDeparture').className = mode === 'departure' ? "flex-1 py-3 tab-active text-lg transition-colors cursor-pointer" : "flex-1 py-3 tab-inactive text-lg transition-colors cursor-pointer";
-      applyLanguage(); // 헤더 글자 변경을 위해 언어 적용 재호출
+      applyLanguage(); 
     }
 
     function getCongestionBars(totalPax) {
@@ -197,7 +221,6 @@
           if (diff < -720) diff += 1440;
           if (diff > 720) diff -= 1440;
 
-          // 핵심: 도착은 -60~10분, 출발은 교집합이 생기는 광범위한 -120~120분으로 계산
           if (currentMode === 'arrival') {
             if (diff >= -60 && diff <= 10) { concurrentCount++; maxPax += f.seats; }
           } else {
@@ -235,10 +258,29 @@
       finally { btn.innerText = (dict[currentLang] || dict['ko']).fetchBtn; }
     }
 
+    // 방문자 카운트 통신
+    async function recordVisit() {
+      try {
+        const res = await fetch('/api/visit');
+        const data = await res.json();
+        if (data.success) {
+          document.getElementById('visitorCount').innerText = `오늘 방문자: ${data.daily}명 | 전체 방문자: ${data.total}명`;
+        } else {
+          document.getElementById('visitorCount').innerText = '';
+        }
+      } catch (err) {
+        document.getElementById('visitorCount').innerText = '';
+      }
+    }
+
     document.getElementById('fetchBtn').addEventListener('click', fetchData);
     document.getElementById('koreaFilter').addEventListener('change', renderTable);
     document.getElementById('searchInput').addEventListener('input', renderTable);
-    window.addEventListener('DOMContentLoaded', fetchData);
+    
+    window.addEventListener('DOMContentLoaded', () => {
+      fetchData();
+      recordVisit();
+    });
   </script>
 </body>
 </html>
